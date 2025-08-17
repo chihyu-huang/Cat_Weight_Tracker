@@ -383,6 +383,17 @@
                 <div id="recordStatus" style="margin-top: 5px; font-size: 12px;"></div>
             </div>
             
+            <!-- Date Selection for Recording -->
+            <div class="controls" style="margin-bottom: 20px;">
+                <div class="control-group">
+                    <label class="control-label">📅 Record Date:</label>
+                    <input type="date" class="control-input" id="recordDate" onchange="checkRecordDate()">
+                    <div style="font-size: 12px; color: #6b6358; margin-top: 5px;" id="dateHelper">
+                        Select a date to record weights (defaults to today)
+                    </div>
+                </div>
+            </div>
+            
             <div class="success-message" id="successMessage">Weights recorded successfully! 🎉</div>
             
             <!-- Weight Recording Section -->
@@ -419,7 +430,7 @@
             
             <!-- Submit Section -->
             <div class="submit-section">
-                <button class="submit-btn" id="submitBtn" onclick="submitWeights()">Submit Today's Weights</button>
+                <button class="submit-btn" id="submitBtn" onclick="submitWeights()">Submit Weights</button>
             </div>
             
             <!-- Controls Section -->
@@ -486,22 +497,27 @@
 
         let chart = null;
         let editingCat = null;
+        
+        // Google Sheets integration
+        const GOOGLE_SCRIPT_URL = 'YOUR_GOOGLE_SCRIPT_URL_HERE'; // Replace with your URL from Step B
 
         // Initialize the app
         function init() {
-            loadDataFromStorage();
-            updateTodayDisplay();
-            checkTodayRecords();
-            
-            // Set default date range (last 30 days to today)
-            const today = new Date();
-            const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
-            
-            document.getElementById('startDate').value = thirtyDaysAgo.toISOString().split('T')[0];
-            document.getElementById('endDate').value = today.toISOString().split('T')[0];
-            
-            initChart();
-            updateStats();
+            // Try to load from Google Sheets first, fallback to local storage
+            loadFromGoogleSheets().then(() => {
+                updateTodayDisplay();
+                checkTodayRecords();
+                
+                // Set default date range (last 30 days to today)
+                const today = new Date();
+                const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
+                
+                document.getElementById('startDate').value = thirtyDaysAgo.toISOString().split('T')[0];
+                document.getElementById('endDate').value = today.toISOString().split('T')[0];
+                
+                initChart();
+                updateStats();
+            });
         }
 
         function updateTodayDisplay() {
@@ -513,38 +529,59 @@
                 day: 'numeric' 
             };
             document.getElementById('todayDate').textContent = today.toLocaleDateString('en-US', options);
+            
+            // Set default record date to today
+            document.getElementById('recordDate').value = today.toISOString().split('T')[0];
         }
 
-        function getTodayString() {
-            return new Date().toISOString().split('T')[0];
+        function getRecordDateString() {
+            const recordDate = document.getElementById('recordDate').value;
+            return recordDate || new Date().toISOString().split('T')[0];
+        }
+
+        function checkRecordDate() {
+            const recordDateStr = getRecordDateString();
+            const today = new Date().toISOString().split('T')[0];
+            const dateHelper = document.getElementById('dateHelper');
+            
+            if (recordDateStr === today) {
+                dateHelper.textContent = "Recording for today";
+                dateHelper.style.color = "#6b8e5a";
+            } else {
+                const recordDate = new Date(recordDateStr);
+                dateHelper.textContent = `Recording for ${recordDate.toLocaleDateString()}`;
+                dateHelper.style.color = "#a0826d";
+            }
+            
+            checkTodayRecords();
         }
 
         function checkTodayRecords() {
-            const today = getTodayString();
+            const recordDateStr = getRecordDateString();
             
             ['cat1', 'cat2'].forEach(catId => {
-                const todayRecord = catData[catId].weights.find(record => 
-                    record.date.toISOString().split('T')[0] === today
+                const recordForDate = catData[catId].weights.find(record => 
+                    record.date.toISOString().split('T')[0] === recordDateStr
                 );
                 
                 const input = document.getElementById(catId + 'Weight');
                 const editBtn = document.getElementById(catId + 'Edit');
                 const status = document.getElementById(catId + 'Status');
                 
-                if (todayRecord) {
-                    input.value = todayRecord.weight;
+                if (recordForDate) {
+                    input.value = recordForDate.weight;
                     input.disabled = true;
                     editBtn.classList.add('visible');
                     
-                    const previousWeight = getPreviousWeight(catId, today);
+                    const previousWeight = getPreviousWeight(catId, recordDateStr);
                     if (previousWeight !== null) {
-                        const change = todayRecord.weight - previousWeight;
+                        const change = recordForDate.weight - previousWeight;
                         const changeText = change === 0 ? 'No change' : 
                                          change > 0 ? `+${change.toFixed(2)}kg` : 
                                          `${change.toFixed(2)}kg`;
-                        status.innerHTML = `<span class="recorded-today">✓ Recorded: ${todayRecord.weight}kg (${changeText})</span>`;
+                        status.innerHTML = `<span class="recorded-today">✓ Recorded: ${recordForDate.weight}kg (${changeText})</span>`;
                     } else {
-                        status.innerHTML = `<span class="recorded-today">✓ Recorded: ${todayRecord.weight}kg</span>`;
+                        status.innerHTML = `<span class="recorded-today">✓ Recorded: ${recordForDate.weight}kg</span>`;
                     }
                 } else {
                     input.value = '';
@@ -578,30 +615,40 @@
         }
 
         function updateSubmitButton() {
-            const today = getTodayString();
+            const recordDateStr = getRecordDateString();
             const cat1Recorded = catData.cat1.weights.some(record => 
-                record.date.toISOString().split('T')[0] === today
+                record.date.toISOString().split('T')[0] === recordDateStr
             );
             const cat2Recorded = catData.cat2.weights.some(record => 
-                record.date.toISOString().split('T')[0] === today
+                record.date.toISOString().split('T')[0] === recordDateStr
             );
             
             const submitBtn = document.getElementById('submitBtn');
             const container = document.getElementById('catsContainer');
+            const recordDate = new Date(recordDateStr);
+            const today = new Date().toISOString().split('T')[0];
             
             if (cat1Recorded && cat2Recorded) {
                 submitBtn.disabled = true;
-                submitBtn.textContent = 'Weights Submitted ✓';
+                if (recordDateStr === today) {
+                    submitBtn.textContent = 'Today\'s Weights Submitted ✓';
+                } else {
+                    submitBtn.textContent = `Weights Submitted for ${recordDate.toLocaleDateString()} ✓`;
+                }
                 container.classList.add('recorded');
             } else {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit Today\'s Weights';
+                if (recordDateStr === today) {
+                    submitBtn.textContent = 'Submit Today\'s Weights';
+                } else {
+                    submitBtn.textContent = `Submit Weights for ${recordDate.toLocaleDateString()}`;
+                }
                 container.classList.remove('recorded');
             }
         }
 
         function updateRecordStatus() {
-            const today = getTodayString();
+            const today = new Date().toISOString().split('T')[0];
             const cat1Recorded = catData.cat1.weights.some(record => 
                 record.date.toISOString().split('T')[0] === today
             );
@@ -613,7 +660,7 @@
             
             if (cat1Recorded && cat2Recorded) {
                 statusEl.textContent = "✅ Both cats recorded today";
-                statusEl.style.color = "#6b8e5a";
+                statusEl.style.color = "#212C1C";
             } else if (cat1Recorded || cat2Recorded) {
                 const recordedCat = cat1Recorded ? "Umi" : "Sora";
                 const pendingCat = cat1Recorded ? "Sora" : "Umi";
@@ -647,42 +694,47 @@
                 return;
             }
             
-            const today = getTodayString();
-            const timestamp = new Date();
+            const recordDateStr = getRecordDateString();
+            const recordDate = new Date(recordDateStr);
+            recordDate.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
             
-            // Check if already recorded today
+            // Check if already recorded for this date
             const cat1Exists = catData.cat1.weights.some(record => 
-                record.date.toISOString().split('T')[0] === today
+                record.date.toISOString().split('T')[0] === recordDateStr
             );
             const cat2Exists = catData.cat2.weights.some(record => 
-                record.date.toISOString().split('T')[0] === today
+                record.date.toISOString().split('T')[0] === recordDateStr
             );
             
             if (cat1Exists || cat2Exists) {
-                alert('Weights already recorded for today!');
+                const dateText = recordDateStr === new Date().toISOString().split('T')[0] ? 
+                    'today' : recordDate.toLocaleDateString();
+                alert(`Weights already recorded for ${dateText}!`);
                 return;
             }
             
             // Add weights
             catData.cat1.weights.push({
                 weight: cat1Weight,
-                date: new Date(timestamp)
+                date: new Date(recordDate)
             });
             
             catData.cat2.weights.push({
                 weight: cat2Weight,
-                date: new Date(timestamp)
+                date: new Date(recordDate)
             });
             
             // Sort weights by date
             catData.cat1.weights.sort((a, b) => a.date - b.date);
             catData.cat2.weights.sort((a, b) => a.date - b.date);
             
-            // Save to localStorage
+            // Save to localStorage and Google Sheets
             saveDataToStorage();
             
             // Show success message
-            showSuccessMessage();
+            const dateText = recordDateStr === new Date().toISOString().split('T')[0] ? 
+                'today' : `for ${recordDate.toLocaleDateString()}`;
+            showSuccessMessage(`Weights recorded ${dateText}! 🎉`);
             
             // Update displays
             checkTodayRecords();
@@ -715,9 +767,9 @@
                 return;
             }
             
-            const today = getTodayString();
+            const recordDateStr = getRecordDateString();
             const recordIndex = catData[editingCat].weights.findIndex(record => 
-                record.date.toISOString().split('T')[0] === today
+                record.date.toISOString().split('T')[0] === recordDateStr
             );
             
             if (recordIndex !== -1) {
@@ -759,6 +811,92 @@
                 }
             };
             localStorage.setItem('catWeightData', JSON.stringify(dataToSave));
+            
+            // Save to Google Sheets if URL is configured
+            if (GOOGLE_SCRIPT_URL && GOOGLE_SCRIPT_URL !== 'YOUR_GOOGLE_SCRIPT_URL_HERE') {
+                saveToGoogleSheets();
+            }
+        }
+        
+        function saveToGoogleSheets() {
+            const weights = [];
+            
+            // Prepare data for Google Sheets
+            catData.cat1.weights.forEach(w => {
+                weights.push({
+                    date: w.date.toISOString().split('T')[0],
+                    cat: 'Umi',
+                    weight: w.weight
+                });
+            });
+            
+            catData.cat2.weights.forEach(w => {
+                weights.push({
+                    date: w.date.toISOString().split('T')[0],
+                    cat: 'Sora',
+                    weight: w.weight
+                });
+            });
+            
+            // Send to Google Sheets
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ weights: weights })
+            }).catch(error => {
+                console.log('Failed to sync with Google Sheets:', error);
+            });
+        }
+        
+        function loadFromGoogleSheets() {
+            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'YOUR_GOOGLE_SCRIPT_URL_HERE') {
+                return Promise.resolve();
+            }
+            
+            return fetch(GOOGLE_SCRIPT_URL)
+                .then(response => response.json())
+                .then(data => {
+                    // Clear existing data
+                    catData.cat1.weights = [];
+                    catData.cat2.weights = [];
+                    
+                    // Load from Google Sheets
+                    data.weights.forEach(w => {
+                        const catId = w.cat === 'Umi' ? 'cat1' : 'cat2';
+                        catData[catId].weights.push({
+                            weight: parseFloat(w.weight),
+                            date: new Date(w.date)
+                        });
+                    });
+                    
+                    // Sort by date
+                    catData.cat1.weights.sort((a, b) => a.date - b.date);
+                    catData.cat2.weights.sort((a, b) => a.date - b.date);
+                    
+                    // Save to local storage as backup
+                    localStorage.setItem('catWeightData', JSON.stringify({
+                        cat1: {
+                            name: catData.cat1.name,
+                            weights: catData.cat1.weights.map(w => ({
+                                weight: w.weight,
+                                date: w.date.toISOString()
+                            }))
+                        },
+                        cat2: {
+                            name: catData.cat2.name,
+                            weights: catData.cat2.weights.map(w => ({
+                                weight: w.weight,
+                                date: w.date.toISOString()
+                            }))
+                        }
+                    }));
+                })
+                .catch(error => {
+                    console.log('Failed to load from Google Sheets, using local data:', error);
+                    loadDataFromStorage();
+                });
         }
 
         function loadDataFromStorage() {
