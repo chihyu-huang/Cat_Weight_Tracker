@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cat Weight Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #8b7355 0%, #6b5b73 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: #faf8f5;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(45deg, #a0826d, #8b6f47);
+            color: #faf8f5;
+            padding: 25px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .content {
+            padding: 25px;
+        }
+        
+        .today-banner {
+            background: linear-gradient(45deg, #7d6e83, #9a8c98);
+            color: #faf8f5;
+            padding: 15px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .cats-container {
+            background: #f5f1eb;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #a0826d;
+        }
+        
+        .cats-container.recorded {
+            border-left-color: #6b8e5a;
+            background: #f1f5eb;
+        }
+        
+        .cat-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 15px;
+        }
+        
+        .cat-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .cat-info {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .cat-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #3c3633;
+            min-width: 80px;
+        }
+        
+        .cat-icon {
+            font-size: 18px;
+        }
+        
+        .weight-input-group {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .weight-input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #d6c7b3;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            background: #faf8f5;
+        }
+        
+        .weight-input:focus {
+            outline: none;
+            border-color: #a0826d;
+        }
+        
+        .weight-input:disabled {
+            background: #ebe5d9;
+            color: #6b6358;
+        }
+        
+        .unit-label {
+            font-weight: bold;
+            color: #6b6358;
+            font-size: 14px;
+        }
+        
+        .edit-btn {
+            background: #a0826d;
+            color: #faf8f5;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            display: none;
+            transition: background-color 0.3s;
+        }
+        
+        .edit-btn:hover {
+            background: #8b6f47;
+        }
+        
+        .edit-btn.visible {
+            display: inline-block;
+        }
+        
+        .submit-section {
+            text-align: center;
+            margin: 25px 0;
+        }
+        
+        .submit-btn {
+            background: linear-gradient(45deg, #6b8e5a, #5a7c4a);
+            color: #faf8f5;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(107, 142, 90, 0.3);
+        }
+        
+        .submit-btn:disabled {
+            background: #9a8c98;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .submit-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        .status-messages {
+            margin-top: 15px;
+        }
+        
+        .cat-status {
+            font-size: 12px;
+            margin: 5px 0;
+            padding: 5px 0;
+        }
+        
+        .last-weight {
+            color: #6b6358;
+        }
+        
+        .recorded-today {
+            color: #6b8e5a;
+            font-weight: bold;
+        }
+        
+        .controls {
+            background: #f5f1eb;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        .control-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #3c3633;
+        }
+        
+        .control-input, .control-select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #d6c7b3;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #faf8f5;
+        }
+        
+        .date-inputs {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .date-inputs input {
+            flex: 1;
+        }
+        
+        .chart-container {
+            background: #faf8f5;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .stats {
+            background: linear-gradient(45px, #7d6e83, #9a8c98);
+            color: #faf8f5;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .stats-row {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        .success-message {
+            background: #6b8e5a;
+            color: #faf8f5;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 15px;
+            display: none;
+            animation: slideDown 0.3s ease-out;
+        }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: #faf8f5;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .modal h3 {
+            color: #3c3633;
+            margin-bottom: 15px;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+        
+        .modal-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .modal-btn.cancel {
+            background: #9a8c98;
+            color: #faf8f5;
+        }
+        
+        .modal-btn.confirm {
+            background: #6b8e5a;
+            color: #faf8f5;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                margin: 10px;
+            }
+            
+            .content {
+                padding: 15px;
+            }
+            
+            .cat-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            
+            .cat-info {
+                justify-content: center;
+            }
+            
+            .date-inputs {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🐱 Cat Weight Tracker</h1>
+            <p>One daily record per cat</p>
+        </div>
+        
+        <div class="content">
+            <div class="today-banner">
+                <strong id="todayDate"></strong>
+                <div id="recordStatus" style="margin-top: 5px; font-size: 12px;"></div>
+            </div>
+            
+            <div class="success-message" id="successMessage">Weights recorded successfully! 🎉</div>
+            
+            <!-- Weight Recording Section -->
+            <div class="cats-container" id="catsContainer">
+                <div class="cat-row">
+                    <div class="cat-info">
+                        <span class="cat-icon">🐈</span>
+                        <span class="cat-name">Umi</span>
+                    </div>
+                    <div class="weight-input-group">
+                        <input type="number" class="weight-input" id="cat1Weight" placeholder="Weight" step="0.01" min="0">
+                        <span class="unit-label">kg</span>
+                        <button class="edit-btn" id="cat1Edit" onclick="editWeight('cat1')">Edit</button>
+                    </div>
+                </div>
+                
+                <div class="cat-row">
+                    <div class="cat-info">
+                        <span class="cat-icon">🐱</span>
+                        <span class="cat-name">Sora</span>
+                    </div>
+                    <div class="weight-input-group">
+                        <input type="number" class="weight-input" id="cat2Weight" placeholder="Weight" step="0.01" min="0">
+                        <span class="unit-label">kg</span>
+                        <button class="edit-btn" id="cat2Edit" onclick="editWeight('cat2')">Edit</button>
+                    </div>
+                </div>
+                
+                <div class="status-messages">
+                    <div class="cat-status" id="cat1Status"></div>
+                    <div class="cat-status" id="cat2Status"></div>
+                </div>
+            </div>
+            
+            <!-- Submit Section -->
+            <div class="submit-section">
+                <button class="submit-btn" id="submitBtn" onclick="submitWeights()">Submit Today's Weights</button>
+            </div>
+            
+            <!-- Controls Section -->
+            <div class="controls">
+                <div class="control-group">
+                    <label class="control-label">Chart Display:</label>
+                    <select class="control-select" id="catSelect" onchange="updateChart()">
+                        <option value="both">Both Cats</option>
+                        <option value="cat1">Umi</option>
+                        <option value="cat2">Sora</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label class="control-label">Date Range:</label>
+                    <div class="date-inputs">
+                        <input type="date" class="control-input" id="startDate" onchange="updateChart()">
+                        <input type="date" class="control-input" id="endDate" onchange="updateChart()">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Chart Section -->
+            <div class="chart-container">
+                <canvas id="weightChart" width="400" height="200"></canvas>
+            </div>
+            
+            <!-- Stats Section -->
+            <div class="stats">
+                <h3>Weight Change Statistics</h3>
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <span class="stat-value" id="cat1Change">-</span>
+                        <div class="stat-label">Umi Change %</div>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="cat2Change">-</span>
+                        <div class="stat-label">Sora Change %</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <h3>Edit Weight</h3>
+            <p id="editModalText"></p>
+            <input type="number" id="editInput" step="0.01" min="0" style="width: 100%; padding: 10px; margin: 10px 0; border: 2px solid #d6c7b3; border-radius: 8px; background: #faf8f5;">
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" onclick="closeEditModal()">Cancel</button>
+                <button class="modal-btn confirm" onclick="saveEdit()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize data storage
+        let catData = {
+            cat1: { name: "Umi", weights: [] },
+            cat2: { name: "Sora", weights: [] }
+        };
+
+        let chart = null;
+        let editingCat = null;
+
+        // Initialize the app
+        function init() {
+            loadDataFromStorage();
+            updateTodayDisplay();
+            checkTodayRecords();
+            
+            // Set default date range (last 30 days to today)
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
+            
+            document.getElementById('startDate').value = thirtyDaysAgo.toISOString().split('T')[0];
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+            
+            initChart();
+            updateStats();
+        }
+
+        function updateTodayDisplay() {
+            const today = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            document.getElementById('todayDate').textContent = today.toLocaleDateString('en-US', options);
+        }
+
+        function getTodayString() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        function checkTodayRecords() {
+            const today = getTodayString();
+            
+            ['cat1', 'cat2'].forEach(catId => {
+                const todayRecord = catData[catId].weights.find(record => 
+                    record.date.toISOString().split('T')[0] === today
+                );
+                
+                const input = document.getElementById(catId + 'Weight');
+                const editBtn = document.getElementById(catId + 'Edit');
+                const status = document.getElementById(catId + 'Status');
+                
+                if (todayRecord) {
+                    input.value = todayRecord.weight;
+                    input.disabled = true;
+                    editBtn.classList.add('visible');
+                    
+                    const previousWeight = getPreviousWeight(catId, today);
+                    if (previousWeight !== null) {
+                        const change = todayRecord.weight - previousWeight;
+                        const changeText = change === 0 ? 'No change' : 
+                                         change > 0 ? `+${change.toFixed(2)}kg` : 
+                                         `${change.toFixed(2)}kg`;
+                        status.innerHTML = `<span class="recorded-today">✓ Recorded: ${todayRecord.weight}kg (${changeText})</span>`;
+                    } else {
+                        status.innerHTML = `<span class="recorded-today">✓ Recorded: ${todayRecord.weight}kg</span>`;
+                    }
+                } else {
+                    input.value = '';
+                    input.disabled = false;
+                    editBtn.classList.remove('visible');
+                    
+                    const lastWeight = getLastWeight(catId);
+                    if (lastWeight) {
+                        status.innerHTML = `<span class="last-weight">Last: ${lastWeight.weight}kg on ${lastWeight.date.toLocaleDateString()}</span>`;
+                    } else {
+                        status.innerHTML = `<span class="last-weight">No previous records</span>`;
+                    }
+                }
+            });
+            
+            updateSubmitButton();
+            updateRecordStatus();
+        }
+
+        function getPreviousWeight(catId, excludeDate) {
+            const weights = catData[catId].weights
+                .filter(record => record.date.toISOString().split('T')[0] !== excludeDate)
+                .sort((a, b) => b.date - a.date);
+            
+            return weights.length > 0 ? weights[0].weight : null;
+        }
+
+        function getLastWeight(catId) {
+            const weights = catData[catId].weights.sort((a, b) => b.date - a.date);
+            return weights.length > 0 ? weights[0] : null;
+        }
+
+        function updateSubmitButton() {
+            const today = getTodayString();
+            const cat1Recorded = catData.cat1.weights.some(record => 
+                record.date.toISOString().split('T')[0] === today
+            );
+            const cat2Recorded = catData.cat2.weights.some(record => 
+                record.date.toISOString().split('T')[0] === today
+            );
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const container = document.getElementById('catsContainer');
+            
+            if (cat1Recorded && cat2Recorded) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Weights Submitted ✓';
+                container.classList.add('recorded');
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Today\'s Weights';
+                container.classList.remove('recorded');
+            }
+        }
+
+        function updateRecordStatus() {
+            const today = getTodayString();
+            const cat1Recorded = catData.cat1.weights.some(record => 
+                record.date.toISOString().split('T')[0] === today
+            );
+            const cat2Recorded = catData.cat2.weights.some(record => 
+                record.date.toISOString().split('T')[0] === today
+            );
+            
+            const statusEl = document.getElementById('recordStatus');
+            
+            if (cat1Recorded && cat2Recorded) {
+                statusEl.textContent = "✅ Both cats recorded today";
+                statusEl.style.color = "#6b8e5a";
+            } else if (cat1Recorded || cat2Recorded) {
+                const recordedCat = cat1Recorded ? "Umi" : "Sora";
+                const pendingCat = cat1Recorded ? "Sora" : "Umi";
+                statusEl.textContent = `✅ ${recordedCat} recorded • ⏳ ${pendingCat} pending`;
+                statusEl.style.color = "#a0826d";
+            } else {
+                statusEl.textContent = "⏳ No records today yet";
+                statusEl.style.color = "#ddd";
+            }
+        }
+
+        function submitWeights() {
+            const cat1Input = document.getElementById('cat1Weight');
+            const cat2Input = document.getElementById('cat2Weight');
+            
+            const cat1Weight = parseFloat(cat1Input.value);
+            const cat2Weight = parseFloat(cat2Input.value);
+            
+            let errors = [];
+            
+            if (isNaN(cat1Weight) || cat1Weight <= 0) {
+                errors.push('Please enter a valid weight for Umi');
+            }
+            
+            if (isNaN(cat2Weight) || cat2Weight <= 0) {
+                errors.push('Please enter a valid weight for Sora');
+            }
+            
+            if (errors.length > 0) {
+                alert(errors.join('\n'));
+                return;
+            }
+            
+            const today = getTodayString();
+            const timestamp = new Date();
+            
+            // Check if already recorded today
+            const cat1Exists = catData.cat1.weights.some(record => 
+                record.date.toISOString().split('T')[0] === today
+            );
+            const cat2Exists = catData.cat2.weights.some(record => 
+                record.date.toISOString().split('T')[0] === today
+            );
+            
+            if (cat1Exists || cat2Exists) {
+                alert('Weights already recorded for today!');
+                return;
+            }
+            
+            // Add weights
+            catData.cat1.weights.push({
+                weight: cat1Weight,
+                date: new Date(timestamp)
+            });
+            
+            catData.cat2.weights.push({
+                weight: cat2Weight,
+                date: new Date(timestamp)
+            });
+            
+            // Sort weights by date
+            catData.cat1.weights.sort((a, b) => a.date - b.date);
+            catData.cat2.weights.sort((a, b) => a.date - b.date);
+            
+            // Save to localStorage
+            saveDataToStorage();
+            
+            // Show success message
+            showSuccessMessage();
+            
+            // Update displays
+            checkTodayRecords();
+            updateChart();
+            updateStats();
+        }
+
+        function editWeight(catId) {
+            editingCat = catId;
+            const catName = catId === 'cat1' ? 'Umi' : 'Sora';
+            const currentWeight = document.getElementById(catId + 'Weight').value;
+            
+            document.getElementById('editModalText').textContent = `Edit today's weight for ${catName}:`;
+            document.getElementById('editInput').value = currentWeight;
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+            editingCat = null;
+        }
+
+        function saveEdit() {
+            if (!editingCat) return;
+            
+            const newWeight = parseFloat(document.getElementById('editInput').value);
+            
+            if (isNaN(newWeight) || newWeight <= 0) {
+                alert('Please enter a valid weight');
+                return;
+            }
+            
+            const today = getTodayString();
+            const recordIndex = catData[editingCat].weights.findIndex(record => 
+                record.date.toISOString().split('T')[0] === today
+            );
+            
+            if (recordIndex !== -1) {
+                catData[editingCat].weights[recordIndex].weight = newWeight;
+                saveDataToStorage();
+                checkTodayRecords();
+                updateChart();
+                updateStats();
+                showSuccessMessage('Weight updated successfully! 📝');
+            }
+            
+            closeEditModal();
+        }
+
+        function showSuccessMessage(message = 'Weights recorded successfully! 🎉') {
+            const messageEl = document.getElementById('successMessage');
+            messageEl.textContent = message;
+            messageEl.style.display = 'block';
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 3000);
+        }
+
+        function saveDataToStorage() {
+            const dataToSave = {
+                cat1: {
+                    name: catData.cat1.name,
+                    weights: catData.cat1.weights.map(w => ({
+                        weight: w.weight,
+                        date: w.date.toISOString()
+                    }))
+                },
+                cat2: {
+                    name: catData.cat2.name,
+                    weights: catData.cat2.weights.map(w => ({
+                        weight: w.weight,
+                        date: w.date.toISOString()
+                    }))
+                }
+            };
+            localStorage.setItem('catWeightData', JSON.stringify(dataToSave));
+        }
+
+        function loadDataFromStorage() {
+            const saved = localStorage.getItem('catWeightData');
+            if (saved) {
+                const data = JSON.parse(saved);
+                catData.cat1.weights = data.cat1.weights.map(w => ({
+                    weight: w.weight,
+                    date: new Date(w.date)
+                }));
+                catData.cat2.weights = data.cat2.weights.map(w => ({
+                    weight: w.weight,
+                    date: new Date(w.date)
+                }));
+            }
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('weightChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: 'Weight (kg)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true
+                        }
+                    }
+                }
+            });
+            updateChart();
+        }
+
+        function updateChart() {
+            const selectedCat = document.getElementById('catSelect').value;
+            const startDate = new Date(document.getElementById('startDate').value);
+            const endDate = new Date(document.getElementById('endDate').value);
+            endDate.setHours(23, 59, 59, 999);
+            
+            let datasets = [];
+            
+            if (selectedCat === 'both' || selectedCat === 'cat1') {
+                const cat1Data = getFilteredData('cat1', startDate, endDate);
+                if (cat1Data.length > 0) {
+                    datasets.push({
+                        label: catData.cat1.name,
+                        data: cat1Data.map(item => ({ x: item.date.toISOString().split('T')[0], y: item.weight })),
+                        borderColor: '#a0826d',
+                        backgroundColor: 'rgba(160, 130, 109, 0.1)',
+                        tension: 0.2
+                    });
+                }
+            }
+            
+            if (selectedCat === 'both' || selectedCat === 'cat2') {
+                const cat2Data = getFilteredData('cat2', startDate, endDate);
+                if (cat2Data.length > 0) {
+                    datasets.push({
+                        label: catData.cat2.name,
+                        data: cat2Data.map(item => ({ x: item.date.toISOString().split('T')[0], y: item.weight })),
+                        borderColor: '#6b8e5a',
+                        backgroundColor: 'rgba(107, 142, 90, 0.1)',
+                        tension: 0.2
+                    });
+                }
+            }
+            
+            chart.data.datasets = datasets;
+            chart.update();
+        }
+
+        function getFilteredData(catId, startDate, endDate) {
+            return catData[catId].weights.filter(item => 
+                item.date >= startDate && item.date <= endDate
+            );
+        }
+
+        function updateStats() {
+            ['cat1', 'cat2'].forEach(catId => {
+                const weights = catData[catId].weights;
+                const changeEl = document.getElementById(catId + 'Change');
+                
+                if (weights.length >= 2) {
+                    const firstWeight = weights[0].weight;
+                    const lastWeight = weights[weights.length - 1].weight;
+                    const changePercent = ((lastWeight - firstWeight) / firstWeight * 100).toFixed(1);
+                    
+                    changeEl.textContent = `${changePercent > 0 ? '+' : ''}${changePercent}%`;
+                    changeEl.style.color = changePercent > 0 ? '#6b8e5a' : changePercent < 0 ? '#a0826d' : '#faf8f5';
+                } else {
+                    changeEl.textContent = '-';
+                    changeEl.style.color = '#faf8f5';
+                }
+            });
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('editModal');
+            if (event.target == modal) {
+                closeEditModal();
+            }
+        }
+
+        // Initialize the app when page loads
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
